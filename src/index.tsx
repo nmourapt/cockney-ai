@@ -88,9 +88,10 @@ function Page({ initialText }: { initialText: string }) {
                 <button
                   type="submit"
                   id="submit-btn"
-                  class="rounded-pill bg-primary px-6 py-2.5 font-medium text-on-primary hover:bg-primary-active transition"
+                  class="inline-flex items-center rounded-pill bg-primary px-6 py-2.5 font-medium text-on-primary hover:bg-primary-active transition disabled:opacity-60"
                 >
-                  Translate
+                  <span id="btn-spinner" class="mr-2 hidden h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                  <span id="btn-text">Translate</span>
                 </button>
               </div>
             </form>
@@ -140,12 +141,26 @@ const clientScript = `
 (function() {
   const form = document.getElementById('translator');
   const input = document.getElementById('text-input');
+  const submitBtn = document.getElementById('submit-btn');
+  const btnText = document.getElementById('btn-text');
+  const btnSpinner = document.getElementById('btn-spinner');
   const loading = document.getElementById('loading');
   const result = document.getElementById('result');
   const translationOutput = document.getElementById('translation-output');
   const substitutionsList = document.getElementById('substitutions');
   const errorBox = document.getElementById('error');
   const copyBtn = document.getElementById('copy-btn');
+
+  function setLoading(isLoading) {
+    submitBtn.disabled = isLoading;
+    if (isLoading) {
+      btnSpinner.classList.remove('hidden');
+      btnText.textContent = 'Translating…';
+    } else {
+      btnSpinner.classList.add('hidden');
+      btnText.textContent = 'Translate';
+    }
+  }
 
   function showError(msg) {
     errorBox.textContent = msg;
@@ -169,7 +184,7 @@ const clientScript = `
   async function submit() {
     const text = input.value.trim();
     if (!text) return;
-    loading.classList.remove('hidden');
+    setLoading(true);
     result.classList.add('hidden');
     errorBox.classList.add('hidden');
 
@@ -188,7 +203,7 @@ const clientScript = `
     } catch (e) {
       showError(e.message);
     } finally {
-      loading.classList.add('hidden');
+      setLoading(false);
     }
   }
 

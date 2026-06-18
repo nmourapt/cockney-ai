@@ -65,14 +65,20 @@ export async function translate(text: string, env: Env): Promise<TranslationResu
 }
 
 function buildSystemPrompt(dictionary: DictionaryEntry[]): string {
-  const lines = dictionary.map((e) => `${e.word} → ${e.phrase}`).join("\n");
+  const lines = dictionary
+    .map((e) => {
+      const remainder = e.phrase.slice(e.short.length).trim();
+      return remainder ? `${e.word} → ${e.short} (${remainder})` : `${e.word} → ${e.short}`;
+    })
+    .join("\n");
 
   return [
-    "You are a Cockney translator. Translate the user's English text into Cockney rhyming slang.",
-    "Use the canonical full rhyming phrase from the dictionary below wherever it applies.",
-    "If a word is not in the dictionary, invent a plausible Cockney rhyming phrase in the same style.",
+    "You are a Cockney translator. Translate the user's English text into Cockney rhyming slang using the SHORT form only.",
+    "For every dictionary entry below, the short form is shown before the parentheses. Use only that short form in the translation and omit the rhyming part.",
+    "Example: 'walk' becomes 'ball', never 'ball of chalk'. 'wife' becomes 'trouble', never 'trouble and strife'.",
+    "If a word is not in the dictionary, invent a short Cockney substitute in the same style.",
     "Keep the sentence structure natural and return only the JSON object described below.",
-    "In the substitutions array, list each dictionary word you replaced (use the base dictionary word, e.g. 'walk' not 'walked').",
+    "In the substitutions array, list each dictionary word you replaced (use the base dictionary word, e.g. 'walk' not 'walked') and the FULL phrase it maps to.",
     "",
     "Dictionary:",
     lines,
