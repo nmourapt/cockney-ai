@@ -1,0 +1,32 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cockney-ai",
+  "main": "src/index.tsx",
+  "compatibility_date": "2026-06-18",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "ai": {
+    "binding": "AI",
+    "remote": true
+  },
+
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "html_handling": "none",
+    "not_found_handling": "none"
+  },
+
+  "kv_namespaces": [
+    {
+      "binding": "COCKNEY_KV",
+      "id": "f2ac4b8682954f63b723009cd0dacbbe",
+      "remote": true
+    }
+  ],
+
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}

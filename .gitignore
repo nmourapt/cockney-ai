@@ -1,0 +1,7 @@
+node_modules
+.wrangler
+.dev.vars
+*.log
+/public/styles.css
+/worker-configuration.d.ts
+.DS_Store
