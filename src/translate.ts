@@ -2,11 +2,20 @@ import type { DictionaryEntry, Env, TranslationResult } from "./types";
 
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
-export async function translate(text: string, env: Env): Promise<TranslationResult> {
+export type Direction = "to-cockney" | "to-english";
+
+export async function translate(
+  text: string,
+  env: Env,
+  direction: Direction = "to-cockney"
+): Promise<TranslationResult> {
   const raw = await env.COCKNEY_KV.get("dictionary");
   const dictionary: DictionaryEntry[] = raw ? JSON.parse(raw) : [];
 
-  const systemPrompt = buildSystemPrompt(dictionary);
+  const systemPrompt =
+    direction === "to-cockney"
+      ? buildToCockneyPrompt(dictionary)
+      : buildToEnglishPrompt(dictionary);
 
   const schema = {
     type: "object",
@@ -45,32 +54,41 @@ export async function translate(text: string, env: Env): Promise<TranslationResu
 
   const parsed: unknown =
     typeof response === "string" ? JSON.parse(response) : (response as { response?: unknown }).response;
-
   const typed = parsed as TranslationResult;
-  const dictionaryMap = new Map(dictionary.map((e) => [e.word.toLowerCase(), e]));
 
-  const substitutions = (typed.substitutions || []).map((s) => {
-    const entry = dictionaryMap.get(s.original.toLowerCase());
+  if (direction === "to-cockney") {
+    const dictionaryMap = new Map(dictionary.map((e) => [e.word.toLowerCase(), e]));
     return {
-      original: s.original,
-      phrase: s.phrase,
-      short: entry?.short ?? s.phrase,
+      translation: typed.translation ?? "",
+      substitutions: (typed.substitutions || []).map((s) => {
+        const entry = dictionaryMap.get(s.original.toLowerCase());
+        return {
+          original: s.original,
+          phrase: s.phrase,
+          short: entry?.short ?? s.phrase,
+        };
+      }),
     };
-  });
+  }
 
+  // To English: original is the Cockney term, phrase is the English meaning.
   return {
     translation: typed.translation ?? "",
-    substitutions,
+    substitutions: (typed.substitutions || []).map((s) => ({
+      original: s.original,
+      phrase: s.phrase,
+      short: s.phrase,
+    })),
   };
 }
 
-function buildSystemPrompt(dictionary: DictionaryEntry[]): string {
-  const lines = dictionary
-    .map((e) => {
-      const remainder = e.phrase.slice(e.short.length).trim();
-      return remainder ? `${e.word} → ${e.short} (${remainder})` : `${e.word} → ${e.short}`;
-    })
-    .join("\n");
+function formatDictionaryLine(e: DictionaryEntry): string {
+  const remainder = e.phrase.slice(e.short.length).trim();
+  return remainder ? `${e.word} → ${e.short} (${remainder})` : `${e.word} → ${e.short}`;
+}
+
+function buildToCockneyPrompt(dictionary: DictionaryEntry[]): string {
+  const lines = dictionary.map(formatDictionaryLine).join("\n");
 
   return [
     "You are a Cockney translator. Translate the user's English text into Cockney rhyming slang using the SHORT form only.",
@@ -79,6 +97,24 @@ function buildSystemPrompt(dictionary: DictionaryEntry[]): string {
     "If a word is not in the dictionary, invent a short Cockney substitute in the same style.",
     "Keep the sentence structure natural and return only the JSON object described below.",
     "In the substitutions array, list each dictionary word you replaced (use the base dictionary word, e.g. 'walk' not 'walked') and the FULL phrase it maps to.",
+    "",
+    "Dictionary:",
+    lines,
+    "",
+    "Return a JSON object with exactly these fields:",
+    '{ "translation": string, "substitutions": [{ "original": string, "phrase": string }] }',
+  ].join("\n");
+}
+
+function buildToEnglishPrompt(dictionary: DictionaryEntry[]): string {
+  const lines = dictionary.map(formatDictionaryLine).join("\n");
+
+  return [
+    "You are a Cockney-to-English translator. The user has written text containing Cockney rhyming slang.",
+    "Convert it back to plain, grammatically correct English using the dictionary below.",
+    "The dictionary shows each English word, its short Cockney form, and the full rhyming phrase in parentheses.",
+    "Match both short forms (e.g. 'frog') and full phrases (e.g. 'frog and toad') where they appear.",
+    "In the substitutions array, list each Cockney term you decoded and the English word it means.",
     "",
     "Dictionary:",
     lines,

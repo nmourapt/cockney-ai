@@ -5,13 +5,31 @@ import type { Env } from "./types";
 const app = new Hono<{ Bindings: Env }>();
 
 const EXAMPLES = [
-  "I walked down the road with my wife to visit an old mate.",
-  "Look at my feet, I need a drink and some money.",
-  "Let's go into the house and up the stairs.",
+  {
+    direction: "to-cockney" as const,
+    examples: [
+      "I walked down the road with my wife to visit an old mate.",
+      "Look at my feet, I need a drink and some money.",
+      "Let's go into the house and up the stairs.",
+    ],
+  },
+  {
+    direction: "to-english" as const,
+    examples: [
+      "I balled down the frog with my trouble to visit an old china.",
+      "Look at my plates, I need a pig and some bees.",
+      "Let's go into the cat and up the apples.",
+    ],
+  },
+];
+
+const DIRECTIONS: { id: "to-cockney" | "to-english"; label: string; title: string; subtitle: string; placeholder: string }[] = [
+  { id: "to-cockney", label: "English → Cockney", title: "Cockney AI", subtitle: "Translate English into Cockney rhyming slang.", placeholder: "Type something in English…" },
+  { id: "to-english", label: "Cockney → English", title: "Cockney AI", subtitle: "Translate Cockney rhyming slang back into plain English.", placeholder: "Type some Cockney slang…" },
 ];
 
 app.post("/api/translate", async (c) => {
-  let body: { text?: string };
+  let body: { text?: string; direction?: string };
   try {
     body = await c.req.json();
   } catch {
@@ -26,8 +44,11 @@ app.post("/api/translate", async (c) => {
     return c.json({ error: "text is too long (max 1000 chars)" }, 400);
   }
 
+  const direction: import("./translate").Direction =
+    body.direction === "to-english" ? "to-english" : "to-cockney";
+
   try {
-    const result = await translate(text, c.env);
+    const result = await translate(text, c.env, direction);
     return c.json(result);
   } catch (err) {
     console.error("translation error", err);
@@ -38,11 +59,20 @@ app.post("/api/translate", async (c) => {
 app.get("/styles.css", (c) => c.env.ASSETS.fetch(c.req.raw));
 
 app.get("/", (c) => {
-  const queryText = new URL(c.req.url).searchParams.get("text") ?? "";
-  return c.html(<Page initialText={queryText} />);
+  const url = new URL(c.req.url);
+  const queryText = url.searchParams.get("text") ?? "";
+  const queryDirection: "to-cockney" | "to-english" =
+    url.searchParams.get("direction") === "to-english" ? "to-english" : "to-cockney";
+  return c.html(<Page initialText={queryText} initialDirection={queryDirection} />);
 });
 
-function Page({ initialText }: { initialText: string }) {
+function Page({
+  initialText,
+  initialDirection,
+}: {
+  initialText: string;
+  initialDirection: "to-cockney" | "to-english";
+}) {
   return (
     <html lang="en">
       <head>
@@ -54,36 +84,55 @@ function Page({ initialText }: { initialText: string }) {
       <body class="min-h-screen bg-canvas text-ink">
         <main class="mx-auto max-w-3xl px-6 py-16">
           <header class="mb-12 text-center">
-            <h1 class="font-display text-display-lg mb-3">Cockney AI</h1>
-            <p class="text-body text-lg">Translate English into Cockney rhyming slang.</p>
+            <h1 class="font-display text-display-lg mb-3">{DIRECTIONS.find((d) => d.id === initialDirection)?.title}</h1>
+            <p id="subtitle" class="text-body text-lg">{DIRECTIONS.find((d) => d.id === initialDirection)?.subtitle}</p>
           </header>
 
           <section class="bg-surface-card rounded-xxl shadow-sm border border-hairline p-8">
+            <div class="mb-6 flex justify-center">
+              <div class="inline-flex rounded-pill border border-hairline-strong bg-surface-strong p-1">
+                {DIRECTIONS.map((d) => (
+                  <button
+                    type="button"
+                    class={`direction-btn rounded-pill px-4 py-1.5 text-sm font-medium transition ${d.id === initialDirection ? "bg-primary text-on-primary" : "text-body hover:text-ink"}`}
+                    data-direction={d.id}
+                    data-placeholder={d.placeholder}
+                    data-subtitle={d.subtitle}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <form id="translator" class="space-y-5">
               <label class="block">
-                <span class="sr-only">English text</span>
+                <span class="sr-only">Input text</span>
                 <textarea
                   id="text-input"
                   name="text"
                   rows={4}
                   class="w-full rounded-xl border border-hairline-strong bg-canvas-soft p-4 text-ink placeholder-muted outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                  placeholder="Type something in English..."
+                  placeholder={DIRECTIONS.find((d) => d.id === initialDirection)?.placeholder}
                 >
                   {initialText}
                 </textarea>
               </label>
 
               <div class="flex flex-wrap items-center justify-between gap-4">
-                <div class="flex flex-wrap gap-2">
-                  {EXAMPLES.map((ex) => (
-                    <button
-                      type="button"
-                      class="example-chip rounded-pill border border-hairline-strong bg-surface-strong px-4 py-2 text-sm text-body hover:border-primary hover:text-ink transition"
-                      data-example={ex}
-                    >
-                      Try an example
-                    </button>
-                  ))}
+                <div class="flex flex-wrap gap-2" id="examples">
+                  {EXAMPLES.flatMap((g) =>
+                    g.examples.map((ex) => (
+                      <button
+                        type="button"
+                        class={`example-chip rounded-pill border border-hairline-strong bg-surface-strong px-4 py-2 text-sm text-body hover:border-primary hover:text-ink transition ${g.direction === initialDirection ? "" : "hidden"}`}
+                        data-direction={g.direction}
+                        data-example={ex}
+                      >
+                        Try an example
+                      </button>
+                    ))
+                  )}
                 </div>
                 <button
                   type="submit"
@@ -141,6 +190,7 @@ const clientScript = `
 (function() {
   const form = document.getElementById('translator');
   const input = document.getElementById('text-input');
+  const subtitle = document.getElementById('subtitle');
   const submitBtn = document.getElementById('submit-btn');
   const btnText = document.getElementById('btn-text');
   const btnSpinner = document.getElementById('btn-spinner');
@@ -150,6 +200,32 @@ const clientScript = `
   const substitutionsList = document.getElementById('substitutions');
   const errorBox = document.getElementById('error');
   const copyBtn = document.getElementById('copy-btn');
+  const directionBtns = document.querySelectorAll('.direction-btn');
+  const exampleChipsSource = document.querySelectorAll('.example-chip');
+
+  let currentDirection = document.querySelector('.direction-btn.bg-primary').dataset.direction;
+
+  function setDirection(dir) {
+    currentDirection = dir;
+    directionBtns.forEach((b) => {
+      if (b.dataset.direction === dir) {
+        b.classList.remove('text-body', 'hover:text-ink');
+        b.classList.add('bg-primary', 'text-on-primary');
+        subtitle.textContent = b.dataset.subtitle;
+        input.placeholder = b.dataset.placeholder;
+      } else {
+        b.classList.remove('bg-primary', 'text-on-primary');
+        b.classList.add('text-body', 'hover:text-ink');
+      }
+    });
+    exampleChipsSource.forEach((chip) => {
+      if (chip.dataset.direction === dir) {
+        chip.classList.remove('hidden');
+      } else {
+        chip.classList.add('hidden');
+      }
+    });
+  }
 
   function setLoading(isLoading) {
     submitBtn.disabled = isLoading;
@@ -192,7 +268,7 @@ const clientScript = `
       const res = await fetch('/api/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, direction: currentDirection }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Request failed');
@@ -209,11 +285,18 @@ const clientScript = `
 
   form.addEventListener('submit', (e) => { e.preventDefault(); submit(); });
 
-  document.querySelectorAll('.example-chip').forEach((btn) => {
+  exampleChipsSource.forEach((btn) => {
     btn.textContent = btn.dataset.example.length > 40 ? btn.dataset.example.slice(0, 37) + '…' : btn.dataset.example;
     btn.addEventListener('click', () => {
       input.value = btn.dataset.example;
       submit();
+    });
+  });
+
+  directionBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      setDirection(btn.dataset.direction);
+      input.focus();
     });
   });
 
@@ -229,6 +312,7 @@ const clientScript = `
   form.addEventListener('submit', () => {
     const url = new URL(location.href);
     url.searchParams.set('text', input.value);
+    url.searchParams.set('direction', currentDirection);
     history.replaceState(null, '', url);
   });
 
