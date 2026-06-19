@@ -11,6 +11,7 @@ const EXAMPLES = [
       "I walked down the road with my wife to visit an old mate.",
       "Look at my feet, I need a drink and some money.",
       "Let's go into the house and up the stairs.",
+      "She gave him a look and took his money.",
     ],
   },
   {
@@ -19,6 +20,7 @@ const EXAMPLES = [
       "I balled down the frog with my trouble to visit an old china.",
       "Look at my plates, I need a pig and some bees.",
       "Let's go into the cat and up the apples.",
+      "She gave him a butcher's and took his bread.",
     ],
   },
 ];
@@ -174,9 +176,7 @@ function Page({
           </section>
 
           <footer class="mt-12 text-center text-sm text-muted">
-            <p>
-              Also available as an API: <code class="rounded bg-surface-strong px-2 py-1">POST /api/translate</code>
-            </p>
+            <p>Built because everyone needs more rhyming slang.</p>
           </footer>
         </main>
 
