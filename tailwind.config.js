@@ -17,6 +17,7 @@ module.exports = {
         "surface-strong": "#f0efed",
         primary: "#292524",
         "primary-active": "#0c0a09",
+        "on-primary": "#ffffff",
       },
       fontFamily: {
         display: ["Waldenburg", "Times New Roman", "serif"],
