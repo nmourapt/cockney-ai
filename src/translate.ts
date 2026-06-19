@@ -94,7 +94,7 @@ function buildToCockneyPrompt(dictionary: DictionaryEntry[]): string {
     "You are a Cockney translator. Translate the user's English text into Cockney rhyming slang using the SHORT form only.",
     "For every dictionary entry below, the short form is shown before the parentheses. Use only that short form in the translation and omit the rhyming part.",
     "Example: 'walk' becomes 'ball', never 'ball of chalk'. 'wife' becomes 'trouble', never 'trouble and strife'.",
-    "If a word is not in the dictionary, invent a short Cockney substitute in the same style.",
+    "Only replace words (or their close forms) that are in the dictionary below. If a word is not listed, leave it unchanged. Do not invent Cockney substitutes.",
     "Keep the sentence structure natural and return only the JSON object described below.",
     "In the substitutions array, list each dictionary word you replaced (use the base dictionary word, e.g. 'walk' not 'walked') and the FULL phrase it maps to.",
     "",
